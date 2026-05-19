@@ -1,4 +1,11 @@
-import { world, system } from "@minecraft/server";
+import { 
+    CommandPermissionLevel, 
+    CustomCommandStatus, 
+    Player, 
+    system, 
+    world 
+} from "@minecraft/server";
+import { ActionFormData } from "@minecraft/server-ui";
 
 const spawnSettings = {
     creeper: true,
@@ -26,60 +33,49 @@ world.afterEvents.entitySpawn.subscribe((event) => {
     }
 });
 
-const commandRegistry = new Map();
+system.beforeEvents.startup.subscribe(({ customCommandRegistry }) => {
+    customCommandRegistry.registerCommand(
+        {
+            name: "toggle",
+            description: "モブのスポーン設定UIを開きます",
+            permissionLevel: CommandPermissionLevel.Operator,
+            cheatsRequired: false,
+        },
+        (origin) => {
+            const player = origin.initiator ?? origin.sourceEntity;
+            if (!(player instanceof Player)) {
+                return {
+                    status: CustomCommandStatus.Failure,
+                    message: "このコマンドはプレイヤーのみ使用できます。",
+                };
+            }
 
-function registerCommand(name, callback) {
-    commandRegistry.set(name.toLowerCase(), callback);
-}
+            system.run(() => {
+                const cStatus = spawnSettings.creeper ? "§aON (通常スポーン)" : "§cOFF (即時消去)";
+                const pStatus = spawnSettings.phantom ? "§aON (通常スポーン)" : "§cOFF (即時消去)";
 
-world.beforeEvents.chatSend.subscribe((chatEvent) => {
-    const { message, sender } = chatEvent;
+                const form = new ActionFormData()
+                    .title("§l§0モブスポーン制限設定")
+                    .body(`§r切り替えたいモブを選択してください。\n\n§7現在の状態:\n・クリーパー: ${cStatus}\n§7・ファントム: ${pStatus}`)
+                    .button(`クリーパーを切り替える\n現在: ${cStatus}`)
+                    .button(`ファントムを切り替える\n現在: ${pStatus}`);
 
-    if (!message.startsWith("/")) return;
+                form.show(player).then((result) => {
+                    if (result.canceled) return;
 
-    const commandBody = message.slice(1).trim();
-    const args = commandBody.split(/\s+/);
-    const commandName = args[0].toLowerCase();
+                    if (result.selection === 0) {
+                        spawnSettings.creeper = !spawnSettings.creeper;
+                        const text = spawnSettings.creeper ? "§aON (通常スポーン)" : "§cOFF (即時消去)";
+                        world.sendMessage(`§e[MobToggler] クリーパーのスポーンを ${text} §eに変更しました。`);
+                    } else if (result.selection === 1) {
+                        spawnSettings.phantom = !spawnSettings.phantom;
+                        const text = spawnSettings.phantom ? "§aON (通常スポーン)" : "§cOFF (即時消去)";
+                        world.sendMessage(`§e[MobToggler] ファントムのスポーンを ${text} §eに変更しました。`);
+                    }
+                });
+            });
 
-    if (commandRegistry.has(commandName)) {
-        chatEvent.cancel = true;
-
-        if (!sender.isOp()) {
-            sender.sendMessage("§c[Error] このコマンドを実行する権限（OP）がありません。");
-            return;
+            return { status: CustomCommandStatus.Success };
         }
-
-        system.run(() => {
-            const handler = commandRegistry.get(commandName);
-            handler(args.slice(1), sender);
-        });
-    }
-});
-
-registerCommand("toggle", (args, sender) => {
-    const subCommand = args[0]?.toLowerCase();
-
-    if (subCommand === "creeper" || subCommand === "phantom") {
-        spawnSettings[subCommand] = !spawnSettings[subCommand];
-        const isEnabled = spawnSettings[subCommand];
-        const statusText = isEnabled ? "§aON (通常スポーン)§e" : "§cOFF (即時消去)§e";
-        
-        world.sendMessage(`§e[MobToggler] §b${sender.name}§e が §f${subCommand}§e のスポーンを ${statusText} に切り替えました。`);
-        return;
-    }
-
-    if (subCommand === "status") {
-        const creeperStatus = spawnSettings.creeper ? "§aON (湧く)§r" : "§cOFF (消去中)§r";
-        const phantomStatus = spawnSettings.phantom ? "§aON (湧く)§r" : "§cOFF (消去中)§r";
-
-        sender.sendMessage(
-            `§e==== 現在のモブスポーン設定 ====\n` +
-            `§f・クリーパー: ${creeperStatus}\n` +
-            `§f・ファントム  : ${phantomStatus}\n` +
-            `§e================================`
-        );
-        return;
-    }
-
-    sender.sendMessage("§c[使用方法] /toggle creeper | /toggle phantom | /toggle status");
+    );
 });
