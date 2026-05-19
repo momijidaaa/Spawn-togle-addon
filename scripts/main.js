@@ -1,5 +1,4 @@
 import { 
-    CommandPermissionLevel, 
     CustomCommandStatus, 
     Player, 
     system, 
@@ -36,9 +35,9 @@ world.afterEvents.entitySpawn.subscribe((event) => {
 system.beforeEvents.startup.subscribe(({ customCommandRegistry }) => {
     customCommandRegistry.registerCommand(
         {
-            name: "toggle",
+            name: "mobrestrict:toggle",
             description: "モブのスポーン設定UIを開きます",
-            permissionLevel: CommandPermissionLevel.Operator,
+            permissionLevel: "operator",
             cheatsRequired: false,
         },
         (origin) => {
