@@ -10,7 +10,7 @@
   "modules": [
     {
       "description": "Script Module",
-      "type": "javascript",
+      "type": "script",
       "uuid": "1b4b5c6d-7e8f-90a1-b2c3-d4e5f6a7b111",
       "version": [1, 4, 0],
       "entry": "scripts/main.js"
